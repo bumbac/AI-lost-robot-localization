@@ -1,0 +1,14 @@
+13 13
+XXXXXXXXXXXXX
+X           X
+X  XXXXXXX  X
+X     X     X
+X X X X XXX X
+X X         X
+XX  X XXXXX X
+X   X       X
+X X X XXX XXX
+X           X
+X XXX X   X X
+X           X
+XXXXXXXXXXXXX
