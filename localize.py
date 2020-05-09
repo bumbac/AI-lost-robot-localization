@@ -13,9 +13,7 @@ ip_sensor = 1.0 - p_sensor
 class Node:
     certainity: float
 
-    def __init__(self, x, y, wall, sides, certainity):
-        self.x = x
-        self.y = y
+    def __init__(self, wall, sides, certainity):
         self.wall = wall
         self.sides = sides
         self.certainity = certainity
@@ -33,7 +31,7 @@ class Node:
             symbol = "wall"
         else:
             symbol = "free"
-        return "[" + str(self.x) + "," + str(self.y) + "], " + symbol + " " + str(self.certainity)
+        return symbol + " " + str(self.certainity)
 
 
 def main():
@@ -51,9 +49,13 @@ def main():
     duration = []
     for i in range(loops):
         grid = copy.deepcopy(original_grid)
-        robot = grid[random.randrange(width)][random.randrange(height)]
-        while robot.wall:
-            robot = grid[random.randrange(width)][random.randrange(height)]
+        x = random.randrange(width)
+        y = random.randrange(height)
+        robot = (x, y, grid[x][y].sides)
+        while grid[x][y].wall:
+            x = random.randrange(width)
+            y = random.randrange(height)
+            robot = (x, y, grid[x][y].sides)
         result = localize(robot, grid, print_option)
         steps.append(result[0])
         duration.append(result[1])
@@ -77,7 +79,7 @@ def makeGrid(filename, grid):
         grid.append([])
     for y in range(height):
         for x in range(width):
-            grid[x].append(Node(x, y, file.read(1) == "X", [0, 0, 0, 0], 0.0))
+            grid[x].append(Node(file.read(1) == "X", [0, 0, 0, 0], 0.0))
             if not grid[x][y].wall:
                 n_free_tiles += 1
         file.readline()
@@ -116,14 +118,13 @@ def updateData(robot, grid):
         for y in range(len(grid[0])):
             if not grid[x][y].wall:
                 match = 0
-                if grid[x][y] == robot:
+                if grid[x][y].sides == robot[2]:
                     match = 1
                 grid[x][y].certainity = grid[x][y].certainity * (match * p_sensor + (1 - match) * ip_sensor)
             else:
                 grid[x][y].certainity = 0.0
             summation += grid[x][y].certainity
     adept = grid[1][1]
-    robot = grid[robot.x][robot.y]
     for x in range(len(grid)):
         for y in range(len(grid[0])):
             if not grid[x][y].wall:
@@ -131,11 +132,11 @@ def updateData(robot, grid):
                 if grid[x][y].certainity > adept.certainity:
                     adept = grid[x][y]
                 if grid[x][y].certainity > 0.99:
-                    return robot, grid, [0, 0], True, grid[x][y]
+                    return robot, grid, [0, 0], True, [x, y]
     i = random.randrange(4)
     while adept.sides[i] == 1:
         i = random.randrange(4)
-    return robot, grid, movements[i], False, grid[0][0]
+    return robot, grid, movements[i], False, [0, 0]
 
 
 def moveRobot(robot, grid, movement, printing_option):
@@ -147,16 +148,19 @@ def moveRobot(robot, grid, movement, printing_option):
             copy_grid[x + movement[0]][y + movement[1]].certainity = 0.0
             if not copy_grid[x + movement[0]][y + movement[1]].wall:
                 copy_grid[x + movement[0]][y + movement[1]].certainity = grid[x][y].certainity
-    robot = copy_grid[robot.x + movement[0]][robot.y + movement[1]]
+    x = robot[0] + movement[0]
+    y = robot[1] + movement[1]
+    sides = copy_grid[x][y].sides
+    robot = (x, y, sides)
     if printing_option:
-        print("Robot [" + str(robot.x) + ", ", str(robot.y) + "]")
+        print("Robot [" + str(robot[0]) + ", ", str(robot[1]) + "]", str(robot[2]))
     return robot, copy_grid
 
 
 def localize(robot, grid, printing_option):
     start_time = time.time()
     if printing_option:
-        print("ROBOT LOCATION START:[", robot.x, ", ", robot.y, "]")
+        print("ROBOT LOCATION START:[", robot[0], ", ", robot[1], "]", robot[2])
     flag = False
     steps = 0
     robot, grid, next_move, found_solution, location = updateData(robot, grid)
@@ -170,12 +174,12 @@ def localize(robot, grid, printing_option):
             duration = time.time() - start_time
             if printing_option:
                 print("FOUND SOLUTION!!!")
-                print("ROBOT location: ", str(robot))
-                print("SOLUTION:       ", str(location))
-                print("STEPS:          ", str(steps))
+                print("ROBOT location: ", robot)
+                print("SOLUTION:       ", location, grid[location[0]][location[1]].sides)
+                print("STEPS:          ", steps)
                 print("TIME:           ", duration)
             else:
-                print(steps, duration, str(robot), str(location))
+                print(steps, duration, "Robot:", robot, "Solution:", location, grid[location[0]][location[1]].sides)
             sys.stdout.flush()
             return steps, duration
 
