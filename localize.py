@@ -1,9 +1,10 @@
 import random
 import copy
+import statistics
+import sys
+import time
 
 # up, right, down, left, stay
-import sys
-
 movements = [[0, -1], [1, 0], [0, 1], [-1, 0], [0, 0]]
 p_sensor = 1
 ip_sensor = 1.0 - p_sensor
@@ -36,6 +37,7 @@ class Node:
 
 
 def main():
+    begin_time = time.time()
     print_option = True
     loops = 1
     if len(sys.argv) == 4:
@@ -45,12 +47,24 @@ def main():
         loops = int(sys.argv[2])
     original_grid = []
     width, height = makeGrid(sys.argv[1], original_grid)
+    steps = []
+    duration = []
     for i in range(loops):
         grid = copy.deepcopy(original_grid)
         robot = grid[random.randrange(width)][random.randrange(height)]
         while robot.wall:
             robot = grid[random.randrange(width)][random.randrange(height)]
-        localize(robot, grid, print_option)
+        result = localize(robot, grid, print_option)
+        steps.append(result[0])
+        duration.append(result[1])
+    print("FINISH")
+    print("Iterations: ", loops)
+    print("Map size (width height): ", width, height)
+    print("Mean of steps: ", statistics.mean(steps))
+    print("Mean of time per iteration: ", statistics.mean(duration))
+    print("Median of steps: ", statistics.median(steps))
+    print("Median of time per iteration: ", statistics.median(duration))
+    print("Total elapsed time: ", time.time() - begin_time)
 
 
 def makeGrid(filename, grid):
@@ -97,36 +111,35 @@ def printGrid(grid):
 
 
 def updateData(robot, grid):
-    copy_grid = copy.deepcopy(grid)
     summation = 0.0
-    for x in range(len(copy_grid)):
-        for y in range(len(copy_grid[0])):
-            copy_grid[x][y].certainity = 0.0
+    for x in range(len(grid)):
+        for y in range(len(grid[0])):
             if not grid[x][y].wall:
                 match = 0
                 if grid[x][y] == robot:
                     match = 1
-                copy_grid[x][y].certainity = grid[x][y].certainity * (match * p_sensor + (1 - match) * ip_sensor)
-            summation += copy_grid[x][y].certainity
-    adept = copy_grid[1][1]
-    for x in range(len(copy_grid)):
-        for y in range(len(copy_grid[0])):
+                grid[x][y].certainity = grid[x][y].certainity * (match * p_sensor + (1 - match) * ip_sensor)
+            else:
+                grid[x][y].certainity = 0.0
+            summation += grid[x][y].certainity
+    adept = grid[1][1]
+    robot = grid[robot.x][robot.y]
+    for x in range(len(grid)):
+        for y in range(len(grid[0])):
             if not grid[x][y].wall:
-                copy_grid[x][y].certainity /= summation
-                if copy_grid[x][y].certainity > adept.certainity:
-                    adept = copy_grid[x][y]
+                grid[x][y].certainity /= summation
+                if grid[x][y].certainity > adept.certainity:
+                    adept = grid[x][y]
+                if grid[x][y].certainity > 0.99:
+                    return robot, grid, [0, 0], True, grid[x][y]
     i = random.randrange(4)
     while adept.sides[i] == 1:
         i = random.randrange(4)
-    robot = copy_grid[robot.x][robot.y]
-    return robot, copy_grid, movements[i]
+    return robot, grid, movements[i], False, grid[0][0]
 
 
 def moveRobot(robot, grid, movement, printing_option):
     copy_grid = copy.deepcopy(grid)
-    if grid[robot.x + movement[0]][robot.y + movement[1]].wall:
-        movement = [0, 0]
-
     if printing_option:
         print("Move" + str(movement))
     for x in range(1, len(copy_grid) - 1):
@@ -141,28 +154,30 @@ def moveRobot(robot, grid, movement, printing_option):
 
 
 def localize(robot, grid, printing_option):
+    start_time = time.time()
     if printing_option:
         print("ROBOT LOCATION START:[", robot.x, ", ", robot.y, "]")
     flag = False
     steps = 0
-    robot, grid, next_move = updateData(robot, grid)
+    robot, grid, next_move, found_solution, location = updateData(robot, grid)
     while not flag:
         robot, grid = moveRobot(robot, grid, next_move, printing_option)
-        robot, grid, next_move = updateData(robot, grid)
+        robot, grid, next_move, found_solution, location = updateData(robot, grid)
         steps += 1
         if printing_option:
             printGrid(grid)
-        for x in range(1, len(grid) - 1):
-            for y in range(1, len(grid[0]) - 1):
-                if grid[x][y].certainity == 1.0:
-                    flag = True
-                    if printing_option:
-                        print("FOUND SOLUTION!!!")
-                        print("ROBOT location: ", str(robot))
-                        print("SOLUTION:       ", str(grid[x][y]))
-                        print("STEPS:          ", str(steps))
-                    else:
-                        print(steps)
+        if found_solution:
+            duration = time.time() - start_time
+            if printing_option:
+                print("FOUND SOLUTION!!!")
+                print("ROBOT location: ", str(robot))
+                print("SOLUTION:       ", str(location))
+                print("STEPS:          ", str(steps))
+                print("TIME:           ", duration)
+            else:
+                print(steps, duration, str(robot), str(location))
+            sys.stdout.flush()
+            return steps, duration
 
 
 if __name__ == '__main__':
