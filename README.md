@@ -1,5 +1,5 @@
 # Robot localization problem 
-####BI-ZUM semestral project on CTU FIT Prague
+##BI-ZUM semestral project on CTU FIT Prague
 
 This projects demonstrates localization of robot lost in 2D space.
 Map of location is known for robot and he tries to locate himself by recognizing his surroundings. 
